@@ -13,7 +13,7 @@ import bpy
 from mathutils import Vector
 
 
-OUTPUT_PATH = os.path.abspath("cookie_cutter.stl")
+OUTPUT_PATH = os.path.join(os.path.expanduser("~"), "cookie_cutter.stl")
 OBJECT_NAME = "cookie_cutter"
 
 BODY_OUTER_WIDTH_MM = 70.0
@@ -49,7 +49,12 @@ def polygon_area(points):
 
 
 def offset_loop(points, half_width):
-    """Offset a closed centerline loop by half_width using mitered joins."""
+    """Offset a closed centerline loop using mitered joins.
+
+    The loop is normalized to counterclockwise order. For a CCW loop, the
+    left normal points inward, so positive half_width offsets inward and
+    negative half_width offsets outward.
+    """
     pts = [Vector((x, y)) for x, y in points]
     if polygon_area(points) < 0:
         pts.reverse()
@@ -81,11 +86,8 @@ def scale_loop_to_width(loop, target_width):
 
 def max_body_width_for_centerline(centerline_width_mm):
     pts = make_star_points(centerline_width_mm)
-    x_values = []
-    for sign in (1.0, -1.0):
-        loop = offset_loop(pts, sign * WALL_WIDTH_MM / 2.0)
-        x_values.extend(x for x, _ in loop)
-    return max(x_values) - min(x_values)
+    outer = offset_loop(pts, -WALL_WIDTH_MM / 2.0)
+    return max(x for x, _ in outer) - min(x for x, _ in outer)
 
 
 def solve_centerline_width(body_outer_width_mm):
@@ -113,8 +115,8 @@ def add_loop(verts, outer, inner, z):
 
 
 def build_cutter_mesh(points):
-    wall_outer = offset_loop(points, WALL_WIDTH_MM / 2.0)
-    wall_inner = offset_loop(points, -WALL_WIDTH_MM / 2.0)
+    wall_outer = offset_loop(points, -WALL_WIDTH_MM / 2.0)
+    wall_inner = offset_loop(points, WALL_WIDTH_MM / 2.0)
 
     lip_outer_width = BODY_OUTER_WIDTH_MM + 2.0 * BOTTOM_LIP_OUTSET_MM
     lip_outer = scale_loop_to_width(wall_outer, lip_outer_width)
@@ -151,6 +153,17 @@ def build_cutter_mesh(points):
     return mesh
 
 
+def count_non_manifold_edges(mesh):
+    uses = {}
+    for poly in mesh.polygons:
+        vertices = list(poly.vertices)
+        for i, a in enumerate(vertices):
+            b = vertices[(i + 1) % len(vertices)]
+            key = tuple(sorted((a, b)))
+            uses[key] = uses.get(key, 0) + 1
+    return sum(1 for use_count in uses.values() if use_count != 2)
+
+
 def export_selected_stl(path):
     directory = os.path.dirname(path)
     if directory:
@@ -173,6 +186,7 @@ def main():
     centerline_width = solve_centerline_width(BODY_OUTER_WIDTH_MM)
     points = make_star_points(centerline_width)
     mesh = build_cutter_mesh(points)
+    print(f"Non-manifold edges before export: {count_non_manifold_edges(mesh)}")
     obj = bpy.data.objects.new(OBJECT_NAME, mesh)
     bpy.context.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj

@@ -15,7 +15,8 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 2. Convert the requested design into one or more closed 2D centerline paths in millimeters. Keep outlines simple enough to clean and print; avoid narrow gaps below 2 mm unless the user explicitly wants fine detail.
 3. Use `scripts/create_cookie_cutter_stl.py` as the starting Blender Python code. Edit the parameters and `points` generator, then run it through `mcp__blender__execute_blender_code`.
 4. Inspect the created object with `mcp__blender__get_object_info`. Check dimensions, object count, and that the STL was exported to the requested path. The total footprint should include the lower-lip overhang.
-5. If the model has unsupported tiny features, self-crossing paths, or a wrong scale, revise the point path and rerun the Blender code.
+5. Check manifoldness in the Blender code before export by counting edge uses; every mesh edge should be used by exactly 2 faces. If slicers report non-manifold edges, rebuild the cross-section as one closed swept profile instead of patching overlapping coplanar faces.
+6. If the model has unsupported tiny features, self-crossing paths, lip direction errors, or a wrong scale, revise the point path and rerun the Blender code.
 
 ## Modeling Rules
 
@@ -27,6 +28,10 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 - Prefer a smooth, vertical inner cutting wall with no internal ledges, shelves, or steps. Dough-facing inner geometry should use the same inner loop from the bottom contact plane to the top unless the user explicitly asks for an internal feature.
 - When a lip/flange is needed, prefer placing the extra material outside the cutter wall only. Keep the inner wall step-free, and make the lip's bottom contact plane flush with the normal cutter edge contact plane.
 - Keep the cutter body one watertight mesh. The bottom edge may form an outward lip/flange that meets the constant-width wall with a flat shoulder, but avoid creating an inner shoulder unless requested.
+- Build outside-only lips as a single manifold swept cross-section, for example: `inner_bottom -> wall_outer_bottom -> lip_outer_bottom -> lip_outer_top -> wall_outer_lip_top -> wall_outer_top -> inner_top -> inner_bottom`. Do not add overlapping bottom strips or coincident ledge faces that make an edge belong to 3 faces.
+- For a counterclockwise loop, the left normal `(-dy, dx)` points inward. Use the opposite sign for outward offsets and outward lips. Verify by printing that the lip outer width is larger than the body outer width.
+- Keep the cutter wall width uniform by deriving inner and outer wall loops from the same centerline with equal normal offsets. Avoid independently scaling the inner or outer wall loops when the user asks for constant wall thickness.
+- Clamp or redesign sharp offsets that create miter spikes. For hearts or cusped shapes, keep the cutting-edge intent clear: if the user wants the inner point sharp, preserve the inner loop and round or simplify only the outside lip/outer support geometry.
 - Add separate embossing geometry only when requested. Name objects clearly, for example `cookie_cutter` and `emboss_lines`.
 - Export binary STL after selecting only the intended printable objects.
 

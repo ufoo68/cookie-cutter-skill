@@ -8,17 +8,24 @@ Use this checklist before final STL export.
 - Treat requested width as upper/body outer width unless the user asks for total footprint.
 - Default lower lip protrudes 2 mm per side, so total footprint width is body width plus 4 mm.
 - Wall width is usually 1.2-2.0 mm for FDM printing.
+- If constant wall thickness is requested, sample or print-check the inner/outer wall distance; do not rely on separately scaled loops.
 - Wall thickness is constant by default; do not add a cutting-edge taper unless requested.
+- Outside lips should protrude outward from the body. For a counterclockwise loop, remember the left normal points inward; verify the lip footprint is wider than the body.
+- If the lip and cutter edge should share the same contact plane, confirm inner bottom, wall outer bottom, and lip outer bottom are all at the same Z value.
 - Minimum distance between unrelated walls is at least 2 mm unless the user accepts delicate details.
 - Interior corners are not too tight for dough release; round small decorative details.
 - Height is usually 12-18 mm. Very tall cutters may need a handle rim.
 - Organic curves use enough points to look smooth, but not so many that STL becomes noisy.
+- For hearts and cusped shapes, avoid miter spikes in outer support geometry. Preserve a sharp inner point only when requested.
 
 ## Geometry
 
 - The centerline path is closed and does not self-intersect.
 - The generated object is a single manifold-looking mesh with no obvious flipped sections.
 - The lower edge has a short outward lip/flange and meets the constant wall with a flat shoulder.
+- The inner cutting wall has no unintended ledges, shelves, or internal shoulders.
+- Mesh edge-use validation reports zero non-manifold edges; each edge belongs to exactly two faces.
+- Outside-only lip meshes use one closed swept cross-section rather than overlapping coplanar strips.
 - Scene units are metric and the mesh dimensions are in millimeters.
 - Only intended printable objects are selected for STL export.
 
