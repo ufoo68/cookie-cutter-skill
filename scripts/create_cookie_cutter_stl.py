@@ -1,9 +1,9 @@
-"""Blender Python template for creating a tapered cookie-cutter STL.
+"""Blender Python template for creating a cookie-cutter STL.
 
 Paste this file into Blender MCP's execute_blender_code after editing the
 parameters and point generator. Coordinates are in millimeters. By default,
 the requested BODY_OUTER_WIDTH_MM is the normal upper/body width; the lower
-edge protrudes outward by BOTTOM_LIP_OUTSET_MM on each side.
+edge protrudes outward by BOTTOM_LIP_OUTSET_MM on each side. No taper is used.
 """
 
 import math
@@ -19,8 +19,6 @@ OBJECT_NAME = "cookie_cutter"
 BODY_OUTER_WIDTH_MM = 70.0
 HEIGHT_MM = 15.0
 WALL_WIDTH_MM = 1.6
-CUT_WIDTH_MM = 0.6
-BLADE_HEIGHT_MM = 2.0
 BOTTOM_LIP_OUTSET_MM = 2.0
 BOTTOM_LIP_HEIGHT_MM = 1.2
 
@@ -84,10 +82,9 @@ def scale_loop_to_width(loop, target_width):
 def max_body_width_for_centerline(centerline_width_mm):
     pts = make_star_points(centerline_width_mm)
     x_values = []
-    for width in (CUT_WIDTH_MM, WALL_WIDTH_MM):
-        for sign in (1.0, -1.0):
-            loop = offset_loop(pts, sign * width / 2.0)
-            x_values.extend(x for x, _ in loop)
+    for sign in (1.0, -1.0):
+        loop = offset_loop(pts, sign * WALL_WIDTH_MM / 2.0)
+        x_values.extend(x for x, _ in loop)
     return max(x_values) - min(x_values)
 
 
@@ -116,20 +113,18 @@ def add_loop(verts, outer, inner, z):
 
 
 def build_cutter_mesh(points):
-    blade_outer = offset_loop(points, CUT_WIDTH_MM / 2.0)
-    blade_inner = offset_loop(points, -CUT_WIDTH_MM / 2.0)
     wall_outer = offset_loop(points, WALL_WIDTH_MM / 2.0)
     wall_inner = offset_loop(points, -WALL_WIDTH_MM / 2.0)
 
     lip_outer_width = BODY_OUTER_WIDTH_MM + 2.0 * BOTTOM_LIP_OUTSET_MM
     lip_outer = scale_loop_to_width(wall_outer, lip_outer_width)
-    lip_inner = blade_inner
+    lip_inner = wall_inner
 
     verts = []
     loops = [
         add_loop(verts, lip_outer, lip_inner, 0.0),
         add_loop(verts, lip_outer, lip_inner, BOTTOM_LIP_HEIGHT_MM),
-        add_loop(verts, blade_outer, blade_inner, BLADE_HEIGHT_MM),
+        add_loop(verts, wall_outer, wall_inner, BOTTOM_LIP_HEIGHT_MM),
         add_loop(verts, wall_outer, wall_inner, HEIGHT_MM),
     ]
 
