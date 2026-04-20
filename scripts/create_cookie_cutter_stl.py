@@ -1,7 +1,9 @@
 """Blender Python template for creating a tapered cookie-cutter STL.
 
 Paste this file into Blender MCP's execute_blender_code after editing the
-parameters and points. It uses millimeter dimensions and exports a binary STL.
+parameters and point generator. Coordinates are in millimeters. By default,
+the requested BODY_OUTER_WIDTH_MM is the normal upper/body width; the lower
+edge protrudes outward by BOTTOM_LIP_OUTSET_MM on each side.
 """
 
 import math
@@ -14,32 +16,29 @@ from mathutils import Vector
 OUTPUT_PATH = os.path.abspath("cookie_cutter.stl")
 OBJECT_NAME = "cookie_cutter"
 
+BODY_OUTER_WIDTH_MM = 70.0
 HEIGHT_MM = 15.0
 WALL_WIDTH_MM = 1.6
 CUT_WIDTH_MM = 0.6
 BLADE_HEIGHT_MM = 2.0
+BOTTOM_LIP_OUTSET_MM = 2.0
+BOTTOM_LIP_HEIGHT_MM = 1.2
 
 
-def make_heart_points(width_mm=70.0, samples=120):
-    """Return a closed heart-shaped centerline in millimeters."""
+def make_star_points(centerline_width_mm=70.0, outer_points=5):
+    """Return a closed 5-point star centerline."""
+    outer_radius = centerline_width_mm / (2.0 * math.cos(math.radians(18.0)))
+    inner_radius = outer_radius * 0.45
     pts = []
-    for i in range(samples):
-        t = 2.0 * math.pi * i / samples
-        x = 16.0 * math.sin(t) ** 3
-        y = (
-            13.0 * math.cos(t)
-            - 5.0 * math.cos(2.0 * t)
-            - 2.0 * math.cos(3.0 * t)
-            - math.cos(4.0 * t)
-        )
-        pts.append((x, y))
+    for i in range(outer_points * 2):
+        radius = outer_radius if i % 2 == 0 else inner_radius
+        angle = math.radians(90.0 + i * 180.0 / outer_points)
+        pts.append((radius * math.cos(angle), radius * math.sin(angle)))
 
-    min_x = min(p[0] for p in pts)
-    max_x = max(p[0] for p in pts)
-    scale = width_mm / (max_x - min_x)
+    scale = centerline_width_mm / (max(x for x, _ in pts) - min(x for x, _ in pts))
     scaled = [(x * scale, y * scale) for x, y in pts]
-    cx = sum(x for x, _ in scaled) / len(scaled)
-    cy = sum(y for _, y in scaled) / len(scaled)
+    cx = (min(x for x, _ in scaled) + max(x for x, _ in scaled)) / 2.0
+    cy = (min(y for _, y in scaled) + max(y for _, y in scaled)) / 2.0
     return [(x - cx, y - cy) for x, y in scaled]
 
 
@@ -76,27 +75,63 @@ def offset_loop(points, half_width):
     return [(p.x, p.y) for p in out]
 
 
-def build_cutter_mesh(points, height_mm, wall_width_mm, cut_width_mm, blade_height_mm):
-    z_levels = [
-        (0.0, cut_width_mm),
-        (blade_height_mm, wall_width_mm),
-        (height_mm, wall_width_mm),
-    ]
-    verts = []
-    loops = []
+def scale_loop_to_width(loop, target_width):
+    current_width = max(x for x, _ in loop) - min(x for x, _ in loop)
+    factor = target_width / current_width
+    return [(x * factor, y * factor) for x, y in loop]
 
-    for z, width in z_levels:
-        outer = offset_loop(points, width / 2.0)
-        inner = offset_loop(points, -width / 2.0)
-        outer_idx = []
-        inner_idx = []
-        for x, y in outer:
-            outer_idx.append(len(verts))
-            verts.append((x, y, z))
-        for x, y in inner:
-            inner_idx.append(len(verts))
-            verts.append((x, y, z))
-        loops.append((outer_idx, inner_idx))
+
+def max_body_width_for_centerline(centerline_width_mm):
+    pts = make_star_points(centerline_width_mm)
+    x_values = []
+    for width in (CUT_WIDTH_MM, WALL_WIDTH_MM):
+        for sign in (1.0, -1.0):
+            loop = offset_loop(pts, sign * width / 2.0)
+            x_values.extend(x for x, _ in loop)
+    return max(x_values) - min(x_values)
+
+
+def solve_centerline_width(body_outer_width_mm):
+    low = body_outer_width_mm * 0.50
+    high = body_outer_width_mm
+    for _ in range(50):
+        mid = (low + high) / 2.0
+        if max_body_width_for_centerline(mid) > body_outer_width_mm:
+            high = mid
+        else:
+            low = mid
+    return (low + high) / 2.0
+
+
+def add_loop(verts, outer, inner, z):
+    outer_idx = []
+    inner_idx = []
+    for x, y in outer:
+        outer_idx.append(len(verts))
+        verts.append((x, y, z))
+    for x, y in inner:
+        inner_idx.append(len(verts))
+        verts.append((x, y, z))
+    return outer_idx, inner_idx
+
+
+def build_cutter_mesh(points):
+    blade_outer = offset_loop(points, CUT_WIDTH_MM / 2.0)
+    blade_inner = offset_loop(points, -CUT_WIDTH_MM / 2.0)
+    wall_outer = offset_loop(points, WALL_WIDTH_MM / 2.0)
+    wall_inner = offset_loop(points, -WALL_WIDTH_MM / 2.0)
+
+    lip_outer_width = BODY_OUTER_WIDTH_MM + 2.0 * BOTTOM_LIP_OUTSET_MM
+    lip_outer = scale_loop_to_width(wall_outer, lip_outer_width)
+    lip_inner = blade_inner
+
+    verts = []
+    loops = [
+        add_loop(verts, lip_outer, lip_inner, 0.0),
+        add_loop(verts, lip_outer, lip_inner, BOTTOM_LIP_HEIGHT_MM),
+        add_loop(verts, blade_outer, blade_inner, BLADE_HEIGHT_MM),
+        add_loop(verts, wall_outer, wall_inner, HEIGHT_MM),
+    ]
 
     faces = []
     count = len(points)
@@ -140,8 +175,9 @@ def main():
     scene.unit_settings.system = "METRIC"
     scene.unit_settings.scale_length = 0.001
 
-    points = make_heart_points(width_mm=70.0)
-    mesh = build_cutter_mesh(points, HEIGHT_MM, WALL_WIDTH_MM, CUT_WIDTH_MM, BLADE_HEIGHT_MM)
+    centerline_width = solve_centerline_width(BODY_OUTER_WIDTH_MM)
+    points = make_star_points(centerline_width)
+    mesh = build_cutter_mesh(points)
     obj = bpy.data.objects.new(OBJECT_NAME, mesh)
     bpy.context.collection.objects.link(obj)
     bpy.context.view_layer.objects.active = obj

@@ -5,6 +5,8 @@ Use this checklist before final STL export.
 ## Printability
 
 - Overall size matches the user's requested millimeters.
+- Treat requested width as upper/body outer width unless the user asks for total footprint.
+- Default lower lip protrudes 2 mm per side, so total footprint width is body width plus 4 mm.
 - Wall width is usually 1.2-2.0 mm for FDM printing.
 - Cutting edge is usually 0.4-0.8 mm wide, not a mathematically sharp zero-width edge.
 - Minimum distance between unrelated walls is at least 2 mm unless the user accepts delicate details.
@@ -17,6 +19,7 @@ Use this checklist before final STL export.
 - The centerline path is closed and does not self-intersect.
 - The generated object is a single manifold-looking mesh with no obvious flipped sections.
 - The blade taper is at the bottom, with the broader wall above it.
+- The lower edge has a short outward lip/flange and transitions cleanly into the blade.
 - Scene units are metric and the mesh dimensions are in millimeters.
 - Only intended printable objects are selected for STL export.
 
