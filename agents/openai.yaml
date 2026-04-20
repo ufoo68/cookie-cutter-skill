@@ -1,0 +1,13 @@
+interface:
+  display_name: "Cookie Cutter STL"
+  short_description: "Design printable cookie-cutter STL files"
+  default_prompt: "Use $cookie-cutter-stl to create a printable cookie cutter STL with Blender MCP."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "blender"
+      description: "Blender MCP for creating mesh geometry, inspecting objects, and exporting STL files."
+
+policy:
+  allow_implicit_invocation: true
