@@ -11,7 +11,7 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 
 ## Workflow
 
-1. Clarify the physical intent only when needed: body outer size in mm, cutter height, wall thickness, lower-lip size, whether an embossing stamp is needed, and the target output path.
+1. Clarify the physical intent only when needed: body outer size in mm, cutter height, wall thickness, lower-lip size, whether the lip should be outside-only, whether an embossing stamp is needed, and the target output path.
 2. Convert the requested design into one or more closed 2D centerline paths in millimeters. Keep outlines simple enough to clean and print; avoid narrow gaps below 2 mm unless the user explicitly wants fine detail.
 3. Use `scripts/create_cookie_cutter_stl.py` as the starting Blender Python code. Edit the parameters and `points` generator, then run it through `mcp__blender__execute_blender_code`.
 4. Inspect the created object with `mcp__blender__get_object_info`. Check dimensions, object count, and that the STL was exported to the requested path. The total footprint should include the lower-lip overhang.
@@ -24,7 +24,9 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 - Default dimensions: `height_mm=15`, `wall_width_mm=1.6`, `bottom_lip_outset_mm=2.0`, `bottom_lip_height_mm=1.2`.
 - Treat the user's requested width as the upper/body outer width unless they explicitly ask for total footprint. With the default lower lip, total width is `requested_width + 4 mm` because the bottom edge protrudes 2 mm on each side.
 - Do not add a taper unless the user explicitly requests one. Keep the cutter wall at a constant thickness from the lower lip to the top.
-- Keep the cutter body one watertight mesh. The bottom edge should form an outward lip/flange that meets the constant-width wall with a flat shoulder.
+- Prefer a smooth, vertical inner cutting wall with no internal ledges, shelves, or steps. Dough-facing inner geometry should use the same inner loop from the bottom contact plane to the top unless the user explicitly asks for an internal feature.
+- When a lip/flange is needed, prefer placing the extra material outside the cutter wall only. Keep the inner wall step-free, and make the lip's bottom contact plane flush with the normal cutter edge contact plane.
+- Keep the cutter body one watertight mesh. The bottom edge may form an outward lip/flange that meets the constant-width wall with a flat shoulder, but avoid creating an inner shoulder unless requested.
 - Add separate embossing geometry only when requested. Name objects clearly, for example `cookie_cutter` and `emboss_lines`.
 - Export binary STL after selecting only the intended printable objects.
 
