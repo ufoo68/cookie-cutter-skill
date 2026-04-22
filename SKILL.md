@@ -12,16 +12,17 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 ## Workflow
 
 1. Clarify the physical intent only when needed: body outer size in mm, cutter height, wall thickness, lower-lip size, whether the lip should be outside-only, whether an embossing stamp is needed, and the target output path.
-2. Convert the requested design into one or more closed 2D centerline paths in millimeters. Keep outlines simple enough to clean and print; avoid narrow gaps below 2 mm unless the user explicitly wants fine detail.
+2. Convert the requested design into one or more closed 2D centerline paths in millimeters. Keep outlines simple enough to clean and print; avoid narrow gaps below 2 mm unless the user explicitly wants fine detail. For image-derived silhouettes, simplify the visual into monotonic arcs and tangent joins rather than tracing every pixel.
 3. Use `scripts/create_cookie_cutter_stl.py` as the starting Blender Python code. Edit the parameters and `points` generator, then run it through `mcp__blender__execute_blender_code`.
 4. Inspect the created object with `mcp__blender__get_object_info`. Check dimensions, object count, and that the STL was exported to the requested path. The total footprint should include the lower-lip overhang.
 5. Check manifoldness in the Blender code before export by counting edge uses; every mesh edge should be used by exactly 2 faces. If slicers report non-manifold edges, rebuild the cross-section as one closed swept profile instead of patching overlapping coplanar faces.
-6. If the model has unsupported tiny features, self-crossing paths, lip direction errors, or a wrong scale, revise the point path and rerun the Blender code.
+6. If the model has unsupported tiny features, self-crossing paths, miter spikes, lip direction errors, or a wrong scale, revise the point path and rerun the Blender code. When a user points out an unwanted bump in a screenshot, first inspect the local centerline ordering and offset join at that location.
 
 ## Modeling Rules
 
 - Work in millimeters. Set Blender scene units to metric with `scale_length = 0.001`.
 - Make the path closed, planar, and ordered consistently. Use 64-160 points for smooth organic shapes; use fewer points for crisp geometric shapes.
+- For silhouettes assembled from arcs and straight segments, avoid local backtracking at joins. If a body shoulder transitions into a roof, wheel arch, or similar curve, make the connecting points progress monotonically into the curve so offsetting does not create a visible spur.
 - Default dimensions: `height_mm=15`, `wall_width_mm=1.6`, `bottom_lip_outset_mm=2.0`, `bottom_lip_height_mm=1.2`.
 - Treat the user's requested width as the upper/body outer width unless they explicitly ask for total footprint. With the default lower lip, total width is `requested_width + 4 mm` because the bottom edge protrudes 2 mm on each side.
 - Do not add a taper unless the user explicitly requests one. Keep the cutter wall at a constant thickness from the lower lip to the top.
@@ -31,8 +32,8 @@ Use Blender MCP to build a printable cutter from a 2D outline, verify the geomet
 - Build outside-only lips as a single manifold swept cross-section, for example: `inner_bottom -> wall_outer_bottom -> lip_outer_bottom -> lip_outer_top -> wall_outer_lip_top -> wall_outer_top -> inner_top -> inner_bottom`. Do not add overlapping bottom strips or coincident ledge faces that make an edge belong to 3 faces.
 - For a counterclockwise loop, the left normal `(-dy, dx)` points inward. Use the opposite sign for outward offsets and outward lips. Verify by printing that the lip outer width is larger than the body outer width.
 - Keep the cutter wall width uniform by deriving inner and outer wall loops from the same centerline with equal normal offsets. Avoid independently scaling the inner or outer wall loops when the user asks for constant wall thickness.
-- Clamp or redesign sharp offsets that create miter spikes. For hearts or cusped shapes, keep the cutting-edge intent clear: if the user wants the inner point sharp, preserve the inner loop and round or simplify only the outside lip/outer support geometry.
-- Add separate embossing geometry only when requested. Name objects clearly, for example `cookie_cutter` and `emboss_lines`.
+- Clamp or redesign sharp offsets that create miter spikes. For image-derived paths, prefer line-intersection offsets with a maximum miter length, and redesign the centerline if clamping changes the intended silhouette. For hearts or cusped shapes, keep the cutting-edge intent clear: if the user wants the inner point sharp, preserve the inner loop and round or simplify only the outside lip/outer support geometry.
+- Add separate embossing or marking geometry only when requested. Name objects clearly, for example `cookie_cutter` and `emboss_lines`. If the marks should be part of one printed cutter assembly, extend open-line mark ends slightly into the outer wall or explicitly join them; otherwise export them as separate selectable pieces only when that is the desired behavior.
 - Export binary STL after selecting only the intended printable objects.
 
 ## Blender MCP Pattern
@@ -44,6 +45,8 @@ Use small, explicit Blender MCP calls:
 3. If needed, run a short corrective code block rather than resending unrelated scene setup.
 
 When the user provides an image or vague idea, first derive a simple silhouette. State assumptions in the final response: body size, total lip footprint, height, wall thickness, bottom-lip overhang, and output path.
+
+For iterative visual corrections, keep a stable output path for the current variant when the user says "戻して" or asks to revert. Recreate the requested previous variant in Blender rather than relying on the current scene contents, then confirm the scene object count matches the intended export.
 
 ## Resources
 

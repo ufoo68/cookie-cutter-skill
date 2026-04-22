@@ -16,11 +16,15 @@ Use this checklist before final STL export.
 - Interior corners are not too tight for dough release; round small decorative details.
 - Height is usually 12-18 mm. Very tall cutters may need a handle rim.
 - Organic curves use enough points to look smooth, but not so many that STL becomes noisy.
+- Image-derived silhouettes are simplified into clean arcs/segments instead of pixel-traced bumps.
+- Segment joins are checked for local backtracking, especially where shoulders meet roofs, wheel arches, ears, handles, or other large curves.
 - For hearts and cusped shapes, avoid miter spikes in outer support geometry. Preserve a sharp inner point only when requested.
+- Internal marking or emboss lines are added only when requested, and open-line endpoints are either intentionally joined into the cutter wall or understood to print as separate pieces.
 
 ## Geometry
 
 - The centerline path is closed and does not self-intersect.
+- Offset joins do not create visible miter spikes or protrusions. If a screenshot reveals a bump, inspect the nearby point order before adjusting global scale or wall width.
 - The generated object is a single manifold-looking mesh with no obvious flipped sections.
 - The lower edge has a short outward lip/flange and meets the constant wall with a flat shoulder.
 - The inner cutting wall has no unintended ledges, shelves, or internal shoulders.
@@ -28,6 +32,7 @@ Use this checklist before final STL export.
 - Outside-only lip meshes use one closed swept cross-section rather than overlapping coplanar strips.
 - Scene units are metric and the mesh dimensions are in millimeters.
 - Only intended printable objects are selected for STL export.
+- Scene object count matches the requested variant: outline-only exports should usually contain one cutter object; marked cutters should contain the cutter plus only the requested marking objects.
 
 ## User-Facing Final Response
 
